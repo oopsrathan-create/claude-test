@@ -155,20 +155,39 @@ INVENTORY_FIELDS = [
 RANKING_FIELDS = ["snapshot_date", "keyword", "provider", "course_id", "title", "rank", "total_results"]
 
 
+def inventory_search_terms(cfg: dict) -> list[str]:
+    """The mein-NOW API has no provider filter, and searching the provider name
+    only returns courses that literally mention it. So we enumerate a provider's
+    catalogue by aggregating provider-name matches across a broad set of search
+    terms (provider names + tracked keywords + keywords.txt) and deduping by id."""
+    terms: list[str] = list(cfg["providers"]) + list(cfg.get("ranking_keywords", []))
+    kw_file = ROOT / "keywords.txt"
+    if kw_file.exists():
+        for line in kw_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                terms.append(line)
+    seen, ordered = set(), []
+    for t in terms:
+        if t.casefold() not in seen:
+            seen.add(t.casefold())
+            ordered.append(t)
+    return ordered
+
+
 def run_inventory(client: Client, cfg: dict) -> dict[int, dict]:
     """Return {course_id: flattened} for all of our providers' courses."""
     found: dict[int, dict] = {}
     max_pages = int(cfg["settings"].get("max_pages_per_query", 50))
-    for provider in cfg["providers"]:
-        print(f"[inventory] searching provider: {provider}")
-        seen_for_provider = 0
-        for _rank, listing, _total in client.iter_listings(provider, max_pages):
-            if provider_matches((listing.get("bildungsanbieter") or {}).get("name"), [provider]):
+    providers = cfg["providers"]
+    for term in inventory_search_terms(cfg):
+        before = len(found)
+        for _rank, listing, _total in client.iter_listings(term, max_pages):
+            if provider_matches((listing.get("bildungsanbieter") or {}).get("name"), providers):
                 cid = listing.get("id")
                 if cid not in found:
                     found[cid] = flatten(listing)
-                    seen_for_provider += 1
-        print(f"  -> {seen_for_provider} courses")
+        print(f"[inventory] '{term}': +{len(found) - before} new (total {len(found)})")
     return found
 
 
