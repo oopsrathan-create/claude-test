@@ -1,0 +1,38 @@
+name: mein-now course crawl
+
+on:
+  schedule:
+    # 05:15 UTC daily (~06:15/07:15 Germany). Cron uses UTC.
+    - cron: "15 5 * * *"
+  workflow_dispatch: {}   # allows manual "Run workflow" from the Actions tab
+
+permissions:
+  contents: write   # needed to commit the new data snapshots back to the repo
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r meinnow_crawler/requirements.txt
+
+      - name: Run crawler
+        run: python meinnow_crawler/crawl.py
+
+      - name: Commit data
+        run: |
+          git config user.name "course-crawler[bot]"
+          git config user.email "actions@github.com"
+          git add meinnow_crawler/data
+          if git diff --cached --quiet; then
+            echo "No data changes."
+          else
+            git commit -m "data: crawl snapshot $(date -u +%Y-%m-%d)"
+            git push
+          fi

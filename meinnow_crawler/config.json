@@ -1,0 +1,25 @@
+{
+  "_comment": "Fill in 'providers' with your brand's provider name(s) EXACTLY as they appear on mein-now.de (the 'Anbieter'/Bildungsanbieter field). Matching is case-insensitive substring, so 'GFN' will match 'GFN GmbH'. Fill 'ranking_keywords' with the search terms prospective students type; the crawler records where your courses rank for each.",
+
+  "providers": [
+    "ecomex"
+  ],
+
+  "ranking_keywords": [
+    "Online Marketing",
+    "Search Engine Marketing",
+    "SEO",
+    "Content Marketing",
+    "Digital Marketing",
+    "Social Media Marketing"
+  ],
+
+  "settings": {
+    "backend_host": "https://rest.mein-now.de/now-prod/suche",
+    "api_key": "infosysbub-nowsuche",
+    "page_size": 20,
+    "max_pages_per_query": 50,
+    "ranking_max_pages": 25,
+    "request_delay_seconds": 0.4
+  }
+}
