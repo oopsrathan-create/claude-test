@@ -45,6 +45,18 @@
          padding:5px 12px; font-size:12px; cursor:pointer; opacity:.45; }
   .chip.on{ opacity:1; }
   canvas{ max-height:360px; }
+  .tabs{ background:var(--panel); border:1px solid var(--line); border-radius:10px; margin-bottom:24px; overflow:hidden; }
+  .tabnav{ display:flex; gap:0; border-bottom:1px solid var(--line); overflow-x:auto; }
+  .tabbtn{ background:transparent; color:var(--muted); border:0; border-bottom:2px solid transparent;
+           padding:13px 18px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;
+           font-family:inherit; }
+  .tabbtn:hover{ color:var(--text); }
+  .tabbtn.active{ color:var(--text); border-bottom-color:var(--accent); }
+  .tabbtn .count{ margin-left:6px; font-weight:500; color:var(--muted); font-size:12px; }
+  .tabbtn.active .count{ color:var(--accent); }
+  .tabpanel{ display:none; padding:18px 20px; }
+  .tabpanel.active{ display:block; }
+  .tabpanel h2{ margin-top:0; }
   .err{ color:var(--bad); }
   small.note{ color:var(--muted); display:block; margin-top:10px; }
   a{ color:var(--accent); }
@@ -57,36 +69,6 @@
 </header>
 <main>
   <div class="tiles" id="tiles"></div>
-
-  <section id="coverageSection" hidden>
-    <h2>My uploaded courses <span class="muted">— is each course you listed actually visible on mein-now?</span></h2>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-      <input type="search" id="covSearch" placeholder="Filter by title…" />
-      <select id="covType" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:8px 10px;font-size:13px">
-        <option value="">All types</option>
-        <option value="Weiterbildung">Weiterbildung</option>
-        <option value="Coaching">Coaching</option>
-      </select>
-      <select id="covStatus" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:8px 10px;font-size:13px">
-        <option value="">All statuses</option>
-        <option value="found">Found</option>
-        <option value="missing">Missing</option>
-      </select>
-      <span class="muted" id="covCount" style="align-self:center"></span>
-    </div>
-    <table id="coverageTable">
-      <thead><tr>
-        <th data-k="status">Status</th>
-        <th data-k="type">Type</th>
-        <th data-k="tracked_title">Your title</th>
-        <th data-k="match_title">As listed on mein-now</th>
-        <th data-k="next_start">Next start</th>
-        <th data-k="locations">Locations</th>
-      </tr></thead>
-      <tbody></tbody>
-    </table>
-    <small class="note">"Missing" = your listed course title isn't surfaced for ecomex by mein-now's search. For Weiterbildung this usually means a listing gap or a title change. <b>Coaching offerings won't appear in mein-now's search</b> — they're indexed in KURSNET but not exposed in the public Weiterbildungssuche; that's a platform behaviour, not a listing problem.</small>
-  </section>
 
   <section>
     <h2>Keyword rankings <span class="muted">— where ecomex ranks on the search results</span></h2>
@@ -103,73 +85,114 @@
     <small class="note">"On page 1" = best rank within the first 20 results (the first page a user sees).</small>
   </section>
 
-  <section id="moversSection" hidden>
-    <h2>Rank movers <span class="muted" id="moversWindow">— vs previous day</span></h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-      <div>
-        <h3 style="font-size:13px;color:var(--good);margin:0 0 8px">▲ Improved</h3>
-        <table id="moversUp"><thead><tr><th>Keyword</th><th>Then</th><th>Now</th><th>Δ</th></tr></thead><tbody></tbody></table>
-      </div>
-      <div>
-        <h3 style="font-size:13px;color:var(--bad);margin:0 0 8px">▼ Dropped</h3>
-        <table id="moversDown"><thead><tr><th>Keyword</th><th>Then</th><th>Now</th><th>Δ</th></tr></thead><tbody></tbody></table>
-      </div>
-    </div>
-    <small class="note">Compares the best rank ecomex held for each keyword on the two most recent snapshots in the history.</small>
-  </section>
-
-  <section id="shareSection" hidden>
-    <h2>Competitor share <span class="muted">— who occupies the top 20 results for each keyword</span></h2>
-    <table id="shareTable">
-      <thead><tr>
-        <th data-k="keyword">Keyword</th>
-        <th data-k="brand_share">ecomex share</th>
-        <th data-k="brand_rank">ecomex best</th>
-        <th data-k="top">Top 3 competitors (share% in top 20)</th>
-      </tr></thead>
-      <tbody></tbody>
-    </table>
-    <small class="note">Daily snapshot of the first page of search results. ecomex share = % of the top-20 slots taken by ecomex courses.</small>
-  </section>
-
   <section>
     <h2>Ranking trend over time <span class="muted">— lower is better; builds up as daily crawls accumulate</span></h2>
     <div class="chips" id="chips"></div>
     <canvas id="trend"></canvas>
   </section>
 
-  <section>
-    <h2>Course inventory <span class="muted">— every ecomex course and where it appears</span></h2>
-    <input type="search" id="search" placeholder="Filter by course title, location, keyword…" />
-    <span class="muted" id="courseCount" style="margin-left:12px"></span>
-    <table id="courseTable" style="margin-top:12px">
-      <thead><tr>
-        <th data-k="title">Course</th>
-        <th data-k="best">Best rank</th>
-        <th data-k="kws">Appears for</th>
-        <th data-k="next">Next start</th>
-        <th data-k="cost">Price band</th>
-        <th data-k="locs">Locations</th>
-      </tr></thead>
-      <tbody></tbody>
-    </table>
-  </section>
-  <section id="matrixSection" hidden>
-    <h2>Full ranking report <span class="muted" id="matrixWeek">— weekly</span></h2>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-      <input type="search" id="matrixSearch" placeholder="Filter by course title…" />
-      <span class="muted" id="matrixCount"></span>
-      <a id="matrixDl" href="meinnow_crawler/data/latest_course_rankings.csv" download
-         style="margin-left:auto;text-decoration:none;background:var(--panel2);border:1px solid var(--line);padding:6px 12px;border-radius:7px;font-size:12px">⬇ Download CSV</a>
-    </div>
-    <div style="overflow-x:auto">
-      <table id="matrixTable" style="min-width:800px">
-        <thead><tr id="matrixHead"></tr></thead>
+  <div class="tabs">
+    <nav class="tabnav" id="tabnav">
+      <button class="tabbtn active" data-tab="inventory">Course inventory <span class="count" id="invCountBadge"></span></button>
+      <button class="tabbtn" data-tab="coverage" id="tabCoverage" hidden>Uploaded courses <span class="count" id="covCountBadge"></span></button>
+      <button class="tabbtn" data-tab="movers" id="tabMovers" hidden>Rank movers</button>
+      <button class="tabbtn" data-tab="share" id="tabShare" hidden>Competitor share</button>
+      <button class="tabbtn" data-tab="matrix" id="tabMatrix" hidden>Full ranking report</button>
+    </nav>
+
+    <div class="tabpanel active" data-tab="inventory">
+      <h2>Course inventory <span class="muted">— every ecomex course and where it appears</span></h2>
+      <input type="search" id="search" placeholder="Filter by course title, location, keyword…" />
+      <span class="muted" id="courseCount" style="margin-left:12px"></span>
+      <table id="courseTable" style="margin-top:12px">
+        <thead><tr>
+          <th data-k="title">Course</th>
+          <th data-k="best">Best rank</th>
+          <th data-k="kws">Appears for</th>
+          <th data-k="next">Next start</th>
+          <th data-k="cost">Price band</th>
+          <th data-k="locs">Locations</th>
+        </tr></thead>
         <tbody></tbody>
       </table>
     </div>
-    <small class="note">Each cell shows the course's position for that keyword in the weekly scan. Blank = not in top results. Updated every Monday.</small>
-  </section>
+
+    <div class="tabpanel" data-tab="coverage" id="coverageSection">
+      <h2>My uploaded courses <span class="muted">— is each course you listed actually visible on mein-now?</span></h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <input type="search" id="covSearch" placeholder="Filter by title…" />
+        <select id="covType" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:8px 10px;font-size:13px">
+          <option value="">All types</option>
+          <option value="Weiterbildung">Weiterbildung</option>
+          <option value="Coaching">Coaching</option>
+        </select>
+        <select id="covStatus" style="background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:8px 10px;font-size:13px">
+          <option value="">All statuses</option>
+          <option value="found">Found</option>
+          <option value="missing">Missing</option>
+        </select>
+        <span class="muted" id="covCount" style="align-self:center"></span>
+      </div>
+      <table id="coverageTable">
+        <thead><tr>
+          <th data-k="status">Status</th>
+          <th data-k="type">Type</th>
+          <th data-k="tracked_title">Your title</th>
+          <th data-k="match_title">As listed on mein-now</th>
+          <th data-k="next_start">Next start</th>
+          <th data-k="locations">Locations</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      <small class="note">"Missing" = your listed course title isn't surfaced for ecomex by mein-now's search. For Weiterbildung this usually means a listing gap or a title change. <b>Coaching offerings won't appear in mein-now's search</b> — they're indexed in KURSNET but not exposed in the public Weiterbildungssuche; that's a platform behaviour, not a listing problem.</small>
+    </div>
+
+    <div class="tabpanel" data-tab="movers" id="moversSection">
+      <h2>Rank movers <span class="muted" id="moversWindow">— vs previous day</span></h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+        <div>
+          <h3 style="font-size:13px;color:var(--good);margin:0 0 8px">▲ Improved</h3>
+          <table id="moversUp"><thead><tr><th>Keyword</th><th>Then</th><th>Now</th><th>Δ</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div>
+          <h3 style="font-size:13px;color:var(--bad);margin:0 0 8px">▼ Dropped</h3>
+          <table id="moversDown"><thead><tr><th>Keyword</th><th>Then</th><th>Now</th><th>Δ</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+      <small class="note">Compares the best rank ecomex held for each keyword on the two most recent snapshots in the history.</small>
+    </div>
+
+    <div class="tabpanel" data-tab="share" id="shareSection">
+      <h2>Competitor share <span class="muted">— who occupies the top 20 results for each keyword</span></h2>
+      <table id="shareTable">
+        <thead><tr>
+          <th data-k="keyword">Keyword</th>
+          <th data-k="brand_share">ecomex share</th>
+          <th data-k="brand_rank">ecomex best</th>
+          <th data-k="top">Top 3 competitors (share% in top 20)</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      <small class="note">Daily snapshot of the first page of search results. ecomex share = % of the top-20 slots taken by ecomex courses.</small>
+    </div>
+
+    <div class="tabpanel" data-tab="matrix" id="matrixSection">
+      <h2>Full ranking report <span class="muted" id="matrixWeek">— weekly</span></h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+        <input type="search" id="matrixSearch" placeholder="Filter by course title…" />
+        <span class="muted" id="matrixCount"></span>
+        <a id="matrixDl" href="meinnow_crawler/data/latest_course_rankings.csv" download
+           style="margin-left:auto;text-decoration:none;background:var(--panel2);border:1px solid var(--line);padding:6px 12px;border-radius:7px;font-size:12px">⬇ Download CSV</a>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="matrixTable" style="min-width:800px">
+          <thead><tr id="matrixHead"></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <small class="note">Each cell shows the course's position for that keyword in the weekly scan. Blank = not in top results. Updated every Monday.</small>
+    </div>
+  </div>
 
   <p class="muted">Data source: mein-now.de / KURSNET. Auto-refreshes when the daily / weekly crawls commit new data.</p>
 </main>
@@ -237,8 +260,7 @@ function latestDate(rows){ return rows.reduce((m,r)=> r.snapshot_date>m?r.snapsh
   const worstKw = kwStats.slice().sort((a,b)=>b.best-a.best)[0];
   const covFound = coverage.filter(r=>r.status==="found").length;
   const tiles = [
-    coverage.length ? {n:`${covFound}/${coverage.length}`, l:"Uploaded courses found"} : {n:inventory.length, l:"Courses listed"},
-    {n:inventory.length, l:"Listings on mein-now"},
+    {n:inventory.length, l:"Courses listed"},
     {n:keywords.length, l:"Keywords tracked"},
     {n:`${onPage1}/${keywords.length}`, l:"Keywords on page 1"},
     {n:bestKw?`#${bestKw.best}`:"—", l:`Best: ${bestKw?bestKw.keyword:""}`},
@@ -258,7 +280,9 @@ function latestDate(rows){ return rows.reduce((m,r)=> r.snapshot_date>m?r.snapsh
 
   // ---- coverage section ----
   if(coverage.length){
-    document.getElementById("coverageSection").hidden = false;
+    const tab = document.getElementById("tabCoverage"); tab.hidden = false;
+    const cf = coverage.filter(r=>r.status==="found").length;
+    document.getElementById("covCountBadge").textContent = `${cf}/${coverage.length}`;
     function renderCoverage(){
       const q  = document.getElementById("covSearch").value.toLowerCase();
       const tf = document.getElementById("covType").value;
@@ -318,8 +342,7 @@ function latestDate(rows){ return rows.reduce((m,r)=> r.snapshot_date>m?r.snapsh
 
   // ---- full ranking matrix (weekly) ----
   if(matrix.length){
-    const sec = document.getElementById("matrixSection");
-    sec.hidden = false;
+    document.getElementById("tabMatrix").hidden = false;
     const week = matrix[0].week || "";
     document.getElementById("matrixWeek").textContent = "— week " + week;
     const allKws = [...new Set(matrix.map(r=>r.keyword))].sort();
@@ -373,7 +396,7 @@ function latestDate(rows){ return rows.reduce((m,r)=> r.snapshot_date>m?r.snapsh
     const ups   = moves.filter(m=>m.delta>0).sort((a,b)=>b.delta-a.delta).slice(0,8);
     const downs = moves.filter(m=>m.delta<0).sort((a,b)=>a.delta-b.delta).slice(0,8);
     if(!ups.length && !downs.length) return;
-    document.getElementById("moversSection").hidden = false;
+    document.getElementById("tabMovers").hidden = false;
     document.getElementById("moversWindow").textContent = `— ${prev} → ${cur}`;
     function fmt(v){ return v==null ? '<span class="muted">—</span>' : `#${v}`; }
     function row(m){
@@ -387,7 +410,7 @@ function latestDate(rows){ return rows.reduce((m,r)=> r.snapshot_date>m?r.snapsh
 
   // ---- competitor share ----
   if(share.length){
-    document.getElementById("shareSection").hidden = false;
+    document.getElementById("tabShare").hidden = false;
     const byKw = {};
     for(const r of share){
       (byKw[r.keyword] ??= []).push({provider:r.provider, share:+r.share_pct, rank:+r.best_rank, brand:r.is_brand==="1"});
@@ -442,6 +465,14 @@ function latestDate(rows){ return rows.reduce((m,r)=> r.snapshot_date>m?r.snapsh
     document.querySelector("#chips").insertAdjacentHTML("afterend",
       `<p class="muted">Only one day of data so far — the trend lines fill in as the daily crawl runs.</p>`);
   }
+
+  // ---- inventory count badge + tab switching ----
+  document.getElementById("invCountBadge").textContent = inventory.length;
+  document.querySelectorAll(".tabbtn").forEach(btn => btn.addEventListener("click", () => {
+    document.querySelectorAll(".tabbtn").forEach(b => b.classList.toggle("active", b === btn));
+    document.querySelectorAll(".tabpanel").forEach(p =>
+      p.classList.toggle("active", p.dataset.tab === btn.dataset.tab));
+  }));
 
   // ---- generic sortable table renderer ----
   function renderTable(id, rows, cols, sortKey, asc){
