@@ -295,12 +295,118 @@ def write_changes(inventory: dict[int, dict]) -> None:
     print(f"wrote diff: +{len(added)} / -{len(removed)}")
 
 
+COVERAGE_FIELDS = [
+    "snapshot_date", "type", "tracked_title", "status", "match_title",
+    "course_id", "locations", "next_start", "cost_bands", "weiterbildungsart",
+]
+
+
+def _normalise(t: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", (t or "").casefold())
+
+
+def run_coverage(client: Client, cfg: dict, inventory: dict[int, dict]) -> list[dict]:
+    """For each tracked course title, find a matching ecomex listing on mein-now.
+
+    Strategy:
+      1. Try to match against the existing inventory (case- and punctuation-
+         insensitive substring either way).
+      2. If no match, run a targeted sw=<title> search and filter to ecomex.
+      3. Record found/missing with the best matching listing's metadata.
+    """
+    tracked_path = ROOT / "tracked_courses.csv"
+    if not tracked_path.exists():
+        print("no tracked_courses.csv; skipping coverage pass")
+        return []
+    tracked = list(csv.DictReader(tracked_path.open(encoding="utf-8")))
+    providers = cfg["providers"]
+    max_pages = int(cfg["settings"].get("max_pages_per_query", 50))
+
+    # Pre-index inventory by normalised title for fast matching.
+    inv_by_norm = {}
+    for c in inventory.values():
+        inv_by_norm.setdefault(_normalise(c["title"]), []).append(c)
+
+    rows = []
+    for t in tracked:
+        tt = (t.get("tracked_title") or "").strip()
+        if not tt:
+            continue
+        ttn = _normalise(tt)
+        match = None
+        # exact normalised match
+        if ttn in inv_by_norm:
+            match = inv_by_norm[ttn][0]
+        else:
+            # substring either direction across inventory
+            for norm, cs in inv_by_norm.items():
+                if ttn and (ttn in norm or norm in ttn):
+                    match = cs[0]
+                    break
+        if not match:
+            # targeted search (best-effort; skip if the API rejects this term)
+            try:
+                for p in range(0, max_pages):
+                    data = client.page(tt, p)
+                    for listing in _listings(data):
+                        name = (listing.get("bildungsanbieter") or {}).get("name")
+                        if provider_matches(name, providers):
+                            ln = _normalise(listing.get("titel", ""))
+                            if ln == ttn or (ttn and (ttn in ln or ln in ttn)):
+                                match = flatten(listing)
+                                break
+                    if match or not _listings(data):
+                        break
+            except requests.RequestException as exc:
+                print(f"  coverage lookup failed for '{tt}': {exc}", file=sys.stderr)
+
+        if match:
+            rows.append({
+                "snapshot_date": TODAY, "type": t["type"], "tracked_title": tt,
+                "status": "found", "match_title": match["title"],
+                "course_id": match["course_id"], "locations": match["locations"],
+                "next_start": match["next_start"], "cost_bands": match["cost_bands"],
+                "weiterbildungsart": match["weiterbildungsart"],
+            })
+        else:
+            rows.append({
+                "snapshot_date": TODAY, "type": t["type"], "tracked_title": tt,
+                "status": "missing", "match_title": "",
+                "course_id": "", "locations": "", "next_start": "", "cost_bands": "",
+                "weiterbildungsart": "",
+            })
+    found = sum(1 for r in rows if r["status"] == "found")
+    print(f"[coverage] {found}/{len(rows)} tracked courses found on mein-now")
+    return rows
+
+
+def write_coverage(rows: list[dict]):
+    if not rows:
+        return
+    DATA.mkdir(parents=True, exist_ok=True)
+    hist = DATA / "coverage.csv"
+    new = not hist.exists()
+    with hist.open("a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=COVERAGE_FIELDS)
+        if new:
+            w.writeheader()
+        w.writerows(rows)
+    latest = DATA / "latest_coverage.csv"
+    with latest.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=COVERAGE_FIELDS)
+        w.writeheader()
+        w.writerows(rows)
+    print(f"wrote coverage -> coverage.csv (+ latest_coverage.csv)")
+
+
 def main() -> int:
     cfg = load_config()
     client = Client(cfg["settings"])
     inventory = run_inventory(client, cfg)
     write_snapshot(inventory)
     write_changes(inventory)
+    coverage = run_coverage(client, cfg, inventory)
+    write_coverage(coverage)
     rankings = run_ranking(client, cfg)
     append_rankings(rankings)
     print("done.")

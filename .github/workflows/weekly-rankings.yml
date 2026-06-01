@@ -1,0 +1,38 @@
+name: weekly course ranking report
+
+on:
+  schedule:
+    # 06:00 UTC every Monday (~07:00/08:00 Germany).
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r meinnow_crawler/requirements.txt
+
+      - name: Run weekly ranking report
+        run: python meinnow_crawler/weekly_rankings.py
+
+      - name: Commit report
+        run: |
+          git config user.name "course-crawler[bot]"
+          git config user.email "actions@github.com"
+          git add meinnow_crawler/data
+          if git diff --cached --quiet; then
+            echo "No data changes."
+          else
+            git commit -m "weekly: ranking report $(date -u +%G-W%V)"
+            git push
+          fi
