@@ -1,0 +1,46 @@
+name: Deploy dashboard to GitHub Pages
+
+# Publishes the repo (static dashboard + committed CSV data) to GitHub Pages.
+# Runs on every push to main, after the daily crawl commits new data, and
+# can be triggered by hand from the Actions tab.
+#
+# One-time setup required: repo Settings -> Pages -> Build and deployment ->
+# Source = "GitHub Actions". After that this workflow fully manages deploys.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Allow this workflow to publish to Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two deploys at once; let an in-progress deploy finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Publish the whole repo so index.html can fetch meinnow_crawler/data/*.csv
+          path: "."
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
