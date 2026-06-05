@@ -111,7 +111,8 @@
         <thead><tr>
           <th data-k="title">Course</th>
           <th data-k="best">Best rank</th>
-          <th data-k="kws">Appears for</th>
+          <th data-k="kwCount"># keywords</th>
+          <th data-k="kws">Top keywords (best first)</th>
           <th data-k="next">Next start</th>
           <th data-k="cost">Price band</th>
           <th data-k="locs">Locations</th>
@@ -361,10 +362,21 @@ function latestDate(rows){ return rows.reduce((m,r)=> r.snapshot_date>m?r.snapsh
     return {
       title:c.title, next:c.next_start||"—", cost:fmtCost(c.cost_bands), locs:c.locations||"—",
       best: appears.length?appears[0].rank:null,
-      kws: appears.map(a=>`${a.kw} ${rankBadge(a.rank)}`).join("  "),
+      appears,                       // [{kw, rank}] sorted best-first
+      kwCount: appears.length,
       _search:(c.title+" "+c.locations+" "+appears.map(a=>a.kw).join(" ")).toLowerCase(),
     };
   });
+
+  const TOP_KW = 5;  // how many of a course's best keywords to show before "+N more"
+  function topKwHtml(r){
+    if(!r.appears.length) return '<span class="muted">not in tracked results</span>';
+    const shown = r.appears.slice(0, TOP_KW)
+      .map(a=>`<span style="white-space:nowrap">${rankBadge(a.rank)} <span class="kw">${a.kw}</span></span>`)
+      .join("  ");
+    const extra = r.appears.length - TOP_KW;
+    return shown + (extra>0 ? ` <span class="muted">+${extra} more</span>` : "");
+  }
 
   function renderCourses(filter=""){
     const f = courses.filter(c=>c._search.includes(filter.toLowerCase()));
@@ -372,7 +384,8 @@ function latestDate(rows){ return rows.reduce((m,r)=> r.snapshot_date>m?r.snapsh
     renderTable("courseTable", f, {
       title: r=>r.title,
       best: r=>rankBadge(r.best),
-      kws: r=>r.kws||'<span class="muted">not in tracked results</span>',
+      kwCount: r=> r.kwCount ? `<span class="badge b-good">${r.kwCount}</span>` : '<span class="badge b-none">0</span>',
+      kws: r=>topKwHtml(r),
       next: r=>r.next,
       cost: r=>r.cost,
       locs: r=>`<span class="muted">${r.locs}</span>`,
