@@ -11,6 +11,14 @@ on:
   push:
     branches: [main]
   workflow_dispatch: {}
+  # Re-deploy after the crawl/weekly jobs commit fresh data to main. Pushes made
+  # by the Actions bot token don't trigger `push` workflows, so without this the
+  # public site would stay frozen at the last human push. workflow_run fires on
+  # the completion of those workflows regardless of who pushed.
+  workflow_run:
+    workflows: ["mein-now course crawl", "weekly course ranking report"]
+    types: [completed]
+    branches: [main]
 
 # Allow this workflow to publish to Pages.
 permissions:
@@ -25,6 +33,9 @@ concurrency:
 
 jobs:
   deploy:
+    # On a workflow_run trigger, only publish if the crawl actually succeeded;
+    # push / manual dispatch always publish.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
