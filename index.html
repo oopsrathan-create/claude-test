@@ -93,7 +93,7 @@
       </tr></thead>
       <tbody></tbody>
     </table>
-    <small class="note">"Tracked" = the crawler actively rank-tracks this exact keyword on mein-now (it's in <code>keywords.txt</code>); rank/page-1 then show ecomex's best result. Edit the full list in <code>meinnow_crawler/listing_keywords.txt</code> — to start rank-tracking a keyword, copy it into <code>meinnow_crawler/keywords.txt</code>.</small>
+    <small class="note">"Tracked" = the crawler monitors this keyword (it's in <code>keywords.txt</code>). Best rank then shows ecomex's position from the latest crawl: <b>pending</b> = tracked but the next crawl hasn't recorded it yet; <b>not ranked</b> = crawled but ecomex isn't in the results. Edit the full list in <code>meinnow_crawler/listing_keywords.txt</code> — to start rank-tracking a keyword, copy it into <code>meinnow_crawler/keywords.txt</code>.</small>
   </section>
 
   <section>
@@ -346,6 +346,10 @@ function latestDate(rows){ return rows.reduce((m,r)=> r.snapshot_date>m?r.snapsh
   try { share = await loadCsv("latest_competitor_share.csv"); } catch(e) { /* optional */ }
   let listingKws = [];
   try { listingKws = await loadLines("meinnow_crawler/listing_keywords.txt"); } catch(e) { /* optional */ }
+  let trackedKws = [];
+  try { trackedKws = await loadLines("meinnow_crawler/keywords.txt"); } catch(e) { /* optional */ }
+  let kwRanks = [];
+  try { kwRanks = await loadCsv("keyword_ranks.csv"); } catch(e) { /* optional */ }
 
   const today = latestDate(rankings) || latestDate(inventory);
   document.getElementById("updated").textContent = "last updated " + (today||"—");
@@ -361,6 +365,21 @@ function latestDate(rows){ return rows.reduce((m,r)=> r.snapshot_date>m?r.snapsh
     return { keyword:kw, best, courses:rows.length, total:+(rows[0]?.total_results||0), page1:best<=20 };
   });
 
+  // ---- what is actually being tracked ----
+  // "Tracked" = the keyword is in keywords.txt (what the crawler monitors), NOT
+  // merely whether ecomex happens to rank for it. Rank/page-1 come from the
+  // latest keyword_ranks snapshot (one row per tracked keyword, brand best rank).
+  const trackedSet = new Set(trackedKws.map(k=>k.toLowerCase()));
+  const krLatest = latestDate(kwRanks);
+  const krMap = {};               // keyword(lc) -> { best, page1 } ; best=null means tracked but not ranking
+  for(const r of kwRanks){
+    if(r.snapshot_date!==krLatest) continue;
+    const b = (r.brand_best_rank==null || r.brand_best_rank==="") ? null : +r.brand_best_rank;
+    krMap[r.keyword.toLowerCase()] = { best:b, page1: b!=null && b<=20 };
+  }
+  const trackedCount = trackedSet.size || keywords.length;
+  const trackedOnPage1 = [...trackedSet].filter(k=>krMap[k] && krMap[k].page1).length;
+
   // ---- tiles ----
   const onPage1 = kwStats.filter(k=>k.page1).length;
   const bestKw = kwStats.slice().sort((a,b)=>a.best-b.best)[0];
@@ -369,8 +388,8 @@ function latestDate(rows){ return rows.reduce((m,r)=> r.snapshot_date>m?r.snapsh
   const tiles = [
     {n:inventory.length, l:"Courses listed"},
     {n:listingKws.length||"—", l:"Listing keywords"},
-    {n:keywords.length, l:"Keywords tracked"},
-    {n:`${onPage1}/${keywords.length}`, l:"Keywords on page 1"},
+    {n:trackedCount, l:"Keywords tracked"},
+    {n:`${trackedOnPage1}/${trackedCount}`, l:"Keywords on page 1"},
     {n:bestKw?`#${bestKw.best}`:"—", l:`Best: ${bestKw?bestKw.keyword:""}`},
     {n:worstKw?`#${worstKw.best}`:"—", l:`Weakest: ${worstKw?worstKw.keyword:""}`},
   ];
@@ -392,12 +411,15 @@ function latestDate(rows){ return rows.reduce((m,r)=> r.snapshot_date>m?r.snapsh
     if(!listingKws.length){
       tbody.innerHTML = `<tr><td colspan="4" class="muted">No listing keywords yet — add them to meinnow_crawler/listing_keywords.txt.</td></tr>`;
     } else {
-      // exact (case-insensitive) match of a listing keyword to a tracked keyword
-      const statByKw = {};
-      for(const k of kwStats) statByKw[k.keyword.toLowerCase()] = k;
+      // tracked = keyword is in keywords.txt (what the crawler monitors).
+      // hasRank = the latest crawl has a result for it yet; best may be null
+      // (tracked, crawled, but ecomex isn't in the results).
       const libRows = listingKws.map(kw=>{
-        const st = statByKw[kw.toLowerCase()];
-        return { keyword:kw, tracked:!!st, best: st?st.best:null, page1: st?!!st.page1:false };
+        const lc = kw.toLowerCase();
+        const tracked = trackedSet.has(lc);
+        const rk = krMap[lc];
+        return { keyword:kw, tracked, hasRank: !!rk,
+                 best: rk ? rk.best : null, page1: rk ? rk.page1 : false };
       });
       function renderLib(){
         const q = document.getElementById("libSearch").value.toLowerCase();
@@ -414,10 +436,12 @@ function latestDate(rows){ return rows.reduce((m,r)=> r.snapshot_date>m?r.snapsh
           tracked: r=> r.tracked
                        ? '<span class="badge b-good">tracked</span>'
                        : '<span class="badge b-none">not tracked</span>',
-          best:    r=> r.tracked ? rankBadge(r.best) : '<span class="muted">—</span>',
-          page1:   r=> r.tracked
-                       ? (r.page1?'<span class="badge b-good">yes</span>':'<span class="badge b-none">no</span>')
-                       : '<span class="muted">—</span>',
+          best:    r=> !r.tracked  ? '<span class="muted">—</span>'
+                     : !r.hasRank  ? '<span class="badge b-warn">pending</span>'
+                     : r.best!=null ? rankBadge(r.best)
+                     : '<span class="badge b-none">not ranked</span>',
+          page1:   r=> (!r.tracked || !r.hasRank || r.best==null) ? '<span class="muted">—</span>'
+                       : (r.page1?'<span class="badge b-good">yes</span>':'<span class="badge b-none">no</span>'),
         }, "keyword", true);
       }
       document.getElementById("libSearch").addEventListener("input", renderLib);
